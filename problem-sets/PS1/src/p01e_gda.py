@@ -29,7 +29,7 @@ class GDA(LinearModel):
     """
 
     def fit(self, x, y):
-        """Fit a GDA model to training set given by x and y.
+        """Fit a GDA model to training set given by x and y
 
         Args:
             x: Training example inputs. Shape (m, n).
