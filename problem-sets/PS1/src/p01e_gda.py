@@ -1,5 +1,6 @@
 import numpy as np
 import util
+from scipy.stats import multivariate_normal 
 
 from linear_model import LinearModel
 
@@ -14,12 +15,13 @@ def main(train_path, eval_path, pred_path):
     """
     # Load dataset
     x_train, y_train = util.load_dataset(train_path, add_intercept=False)
+    x_eval,y_eval = util.load_dataset(eval_path, add_intercept=False)
 
     # *** START CODE HERE ***
     clf = GDA()
     clf.fit(x_train,y_train)
+    print(clf.predict(x_eval))
     # *** END CODE HERE ***
-
 
 class GDA(LinearModel):
     """Gaussian Discriminant Analysis.
@@ -40,41 +42,45 @@ class GDA(LinearModel):
         Returns:
             theta: GDA model parameters.
         """
+
+        
         # *** START CODE HERE ***
-        m,n = np.shape(x)
 
-        phi = sum(y)/m
-
-        mu1 = np.sum(x[np.nonzero(y)])/sum(y)
-
-        mu0 = np.sum(x[np.where(y==0)])/(m-sum(y))
-
-        def covariance_matrix(mu0,mu1):
-            #X, design matrix for feature vector x where y == 1
+        def covariance_matrix(x):
             x_true = x[np.nonzero(y)]
             x_true = x_true - mu1
-            sum_true = np.sum(np.repeat(x_true,n,axis=1) * np.tile(x_true,n),axis=0)
+            x_true = np.repeat(x_true,n,axis=1) * np.tile(x_true,n)
 
 
             x_false = x[np.where(y==0)]
             x_false = x_false - mu0
-            sum_false = np.sum(np.repeat(x_false,n,axis=1) * np.tile(x_false,n),axis=0)
-
-            total = np.sum([sum_false,sum_true],axis=0)/m
-            result = np.reshape(total,(n,n))
-
-            return result
-        print(covariance_matrix(mu0,mu1))
+            x_false = np.repeat(x_false,n,axis=1) * np.tile(x_false,n)
 
 
+            x_combine = np.vstack((x_true,x_false))
+            total = np.sum(x_combine, axis=0)/m
+            matrix = np.reshape(total,(n,n))
 
-        # mu0 = np.n
+            return matrix
 
+        
+        m,n = np.shape(x)
 
-        def joint_likelihood():
-            pass
+        phi = sum(y)/m
+        mu1 = np.sum(x[np.nonzero(y)],axis=0)/sum(y)
+        mu0 = np.sum(x[np.where(y==0)],axis=0)/(m-sum(y))
+        sigma = covariance_matrix(x)
 
+        theta = {
+            "phi": phi,
+            "mu0": mu0,
+            "mu1" : mu1,
+            "sigma" : sigma,
+        }
 
+        self.theta = theta
+
+        return self.theta
 
         # *** END CODE HERE ***
 
@@ -88,4 +94,30 @@ class GDA(LinearModel):
             Outputs of shape (m,).
         """
         # *** START CODE HERE ***
+        phi = self.theta['phi']
+        mu0 = self.theta['mu0']
+        mu1 = self.theta['mu1']
+        sigma = self.theta['sigma']
+
+        prob_x_given_y_true = multivariate_normal.pdf(x[1,:],mean=mu1,cov=sigma)
+        prob_x_given_y_false = multivariate_normal.pdf(x[1,:],mean=mu0,cov=sigma)
+
+        #for prediction in probability, use the following
+        #posterior = (prob_x_given_y_true*phi)/((prob_x_given_y_true*phi)+(prob_x_given_y_false*phi))
+
+        prediction = []
+
+        for feat_vec in x:
+            prob_x_given_y_false = multivariate_normal.pdf(feat_vec,mean=mu0,cov=sigma)
+            prob_x_given_y_true = multivariate_normal.pdf(feat_vec,mean=mu1,cov=sigma)
+
+            prediction.append(np.argmax([prob_x_given_y_false,prob_x_given_y_true]))
+
+
+        return prediction
+
+
+
+
+
         # *** END CODE HERE
